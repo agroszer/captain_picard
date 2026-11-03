@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pycommander"
+version = "0.1.0"
+description = "Orthodox Dual-Pane File Manager TUI in Python"
+readme = "README.md"
+authors = [{ name = "PyCommander Team" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+pycommander = "pycommander.main:main"
