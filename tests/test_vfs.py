@@ -1,5 +1,6 @@
 """Tests for VFS implementations (LocalVFS, ArchiveVFS, VirtualFolderVFS, RemoteVFS)."""
 
+import io
 import os
 import shutil
 import tempfile
@@ -87,7 +88,6 @@ class TestVFS(unittest.TestCase):
         tar_path = os.path.join(self.test_dir, "test.tar.gz")
         with tarfile.open(tar_path, "w:gz") as tf:
             data = b"tar content"
-            import io
             ti = tarfile.TarInfo(name="mydir/file.txt")
             ti.size = len(data)
             tf.addfile(ti, io.BytesIO(data))

@@ -5,6 +5,12 @@ import os
 import shutil
 import stat
 import time
+try:
+    import pwd
+    import grp
+except ImportError:
+    pwd = None
+    grp = None
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -190,12 +196,20 @@ class LocalVFS(VFS):
 
             user = ""
             group = ""
-            try:
-                import pwd, grp
-                user = pwd.getpwuid(st.st_uid).pw_name
-                group = grp.getgrgid(st.st_gid).gr_name
-            except Exception:
+            if pwd is not None:
+                try:
+                    user = pwd.getpwuid(st.st_uid).pw_name
+                except Exception:
+                    user = str(st.st_uid)
+            else:
                 user = str(st.st_uid)
+
+            if grp is not None:
+                try:
+                    group = grp.getgrgid(st.st_gid).gr_name
+                except Exception:
+                    group = str(st.st_gid)
+            else:
                 group = str(st.st_gid)
 
             return FileStat(

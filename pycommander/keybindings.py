@@ -1,7 +1,9 @@
 """Keybinding management, key sequence parser, and keymap dispatcher."""
 
 from __future__ import annotations
+import configparser
 import json
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pycommander.actions import ActionContext, ActionRegistry, registry as default_registry
@@ -183,9 +185,6 @@ class Keymap:
 
     def load_ini(self, ini_content_or_path: str) -> None:
         """Loads keybindings from an INI file or INI string."""
-        import configparser
-        import os
-
         config = configparser.ConfigParser()
         if os.path.exists(ini_content_or_path):
             config.read(ini_content_or_path)
@@ -227,7 +226,6 @@ def load_keymap_from_ini(ini_path: str, name: str = "custom") -> Keymap:
 
 def create_norton_keymap() -> Keymap:
     """Default Norton Commander keybindings loaded from keybindings.ini."""
-    import os
     km = Keymap("norton")
     ini_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "keybindings.ini")
     if os.path.exists(ini_path):
@@ -298,7 +296,6 @@ ctrl+e = compare_directories
 
 def create_vim_keymap() -> Keymap:
     """Vim-style keybindings preset loaded from keybindings_vim.ini."""
-    import os
     km = create_norton_keymap()
     km.name = "vim"
     ini_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "keybindings_vim.ini")
