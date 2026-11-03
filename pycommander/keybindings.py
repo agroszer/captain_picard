@@ -193,8 +193,23 @@ class Keymap:
             config.read_string(ini_content_or_path)
 
         for section in config.sections():
-            for key_seq, action_id in config.items(section):
-                self.bind(key_sequence=key_seq, action_id=action_id.strip())
+            for key_seq, value in config.items(section):
+                val_trimmed = value.strip()
+                # If command is a shell script (e.g. starts with 'sh:', 'shell:' or contains template vars like ${...})
+                if val_trimmed.startswith(("sh:", "shell:", "cmd:")) or "${" in val_trimmed:
+                    from pycommander.shell_actions import register_shell_action
+                    from pycommander.actions import registry as global_registry
+
+                    cmd_template = val_trimmed
+                    for prefix in ("sh:", "shell:", "cmd:"):
+                        if cmd_template.startswith(prefix):
+                            cmd_template = cmd_template[len(prefix):].strip()
+
+                    action_id = f"shell_cmd_{abs(hash(cmd_template)) % 100000}"
+                    register_shell_action(global_registry, action_id, cmd_template)
+                    self.bind(key_sequence=key_seq, action_id=action_id)
+                else:
+                    self.bind(key_sequence=key_seq, action_id=val_trimmed)
 
     def to_ini(self) -> str:
         """Exports keybindings to INI string."""
