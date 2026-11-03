@@ -111,7 +111,14 @@ def main() -> None:
     parser.add_argument("left", nargs="?", default=".", help="Left pane path")
     parser.add_argument("right", nargs="?", default=".", help="Right pane path")
     parser.add_argument("--keymap", choices=["norton", "vim"], default="norton", help="Keybinding profile")
+    parser.add_argument("--textual", action="store_true", help="Launch using Textual UI backend")
     args = parser.parse_args()
+
+    if args.textual:
+        from pycommander.textual_ui import PyCommanderTextualApp
+        textual_app = PyCommanderTextualApp(left_path=args.left, right_path=args.right)
+        textual_app.run()
+        return
 
     km = create_vim_keymap() if args.keymap == "vim" else create_norton_keymap()
     app = PyCommanderApp(left_path=args.left, right_path=args.right, keymap=km)
