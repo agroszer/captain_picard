@@ -41,6 +41,12 @@ class TestShellActions(unittest.TestCase):
         self.assertIn("ext=txt", expanded)
         self.assertIn("count=2", expanded)
 
+        # Extended variables: current_dir, full_fname, just_fname, stem, perms, user
+        expanded_rich = ShellTemplateExpander.expand("cd ${current_dir} && run ${full_fname} --name ${just_fname} --stem ${stem}", ctx)
+        self.assertIn(f"cd {self.test_dir}", expanded_rich)
+        self.assertIn(f"--name document.txt", expanded_rich)
+        self.assertIn(f"--stem document", expanded_rich)
+
         # Selected items expansion
         sel_expanded = ShellTemplateExpander.expand("tar -cvf backup.tar ${selected}", ctx)
         self.assertIn(self.f1, sel_expanded)

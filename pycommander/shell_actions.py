@@ -1,4 +1,4 @@
-"""Shell Command Action executor with template expansion from ActionContext."""
+"""Shell Command Action executor with rich template expansion from ActionContext."""
 
 from __future__ import annotations
 import os
@@ -12,29 +12,60 @@ class ShellTemplateExpander:
     """
     Expands template variables into shell commands based on the active ActionContext.
 
-    Supported template variables:
-      ${file}           - Absolute path of current item
-      ${name}           - Filename of current item
-      ${dir}            - Current directory path
-      ${ext}            - Extension of current item
-      ${target_dir}     - Target / opposite pane directory path
-      ${selected}       - Space-separated quoted paths of all selected items
-      ${selected_names} - Space-separated quoted names of all selected items
-      ${count}          - Number of selected items (or 1 for current item)
+    Available Template Variables:
+      -----------------------------------------------------------------------------------------
+      Variable            Description
+      -----------------------------------------------------------------------------------------
+      ${current_dir}      Active pane's current working directory (alias: ${dir}, ${cwd})
+      ${target_dir}       Opposite / target pane's current directory (alias: ${other_dir})
+      ${full_fname}       Full absolute path of the current selected file (alias: ${file}, ${path})
+      ${just_fname}       Filename of current selected file with extension (alias: ${name}, ${fname})
+      ${stem}             Filename without extension (e.g. 'doc' for 'doc.txt', alias: ${basename})
+      ${ext}              File extension without leading dot (e.g. 'txt')
+      ${size}             Size in bytes of current selected item
+      ${mtime}            Modification timestamp of current selected item
+      ${perms}            Unix permissions string (e.g. '-rw-r--r--')
+      ${user}             Owner username of current selected item
+      ${group}            Group name of current selected item
+      ${selected}         Space-separated, shell-quoted full paths of all selected items
+      ${selected_names}   Space-separated, shell-quoted filenames of all selected items
+      ${selected_stems}   Space-separated, shell-quoted stems (names without ext) of selected items
+      ${count}            Number of selected items (or 1 if current item is targeted)
+      ${active_pane}      Name of the active pane ('left' or 'right')
+      ${target_pane}      Name of the target pane ('right' or 'left')
+      -----------------------------------------------------------------------------------------
     """
 
     @classmethod
     def get_template_vars(cls, context: Optional[ActionContext]) -> Dict[str, str]:
         if not context:
+            cwd = os.getcwd()
             return {
+                "current_dir": cwd,
+                "dir": cwd,
+                "cwd": cwd,
+                "target_dir": cwd,
+                "other_dir": cwd,
+                "full_fname": "",
                 "file": "",
+                "path": "",
+                "just_fname": "",
                 "name": "",
-                "dir": os.getcwd(),
+                "fname": "",
+                "stem": "",
+                "basename": "",
                 "ext": "",
-                "target_dir": os.getcwd(),
+                "size": "0",
+                "mtime": "0",
+                "perms": "",
+                "user": "",
+                "group": "",
                 "selected": "",
                 "selected_names": "",
+                "selected_stems": "",
                 "count": "0",
+                "active_pane": "left",
+                "target_pane": "right",
             }
 
         cur = context.current_item
@@ -42,22 +73,63 @@ class ShellTemplateExpander:
         cur_name = cur.name if cur else ""
         cur_dir = context.active_tab.path if context.active_tab else os.getcwd()
         cur_ext = cur.extension if cur else ""
+
+        stem = ""
+        if cur_name:
+            stem, _ = os.path.splitext(cur_name)
+
         target_dir = context.target_pane.active_tab.path if context.target_pane and context.target_pane.active_tab else cur_dir
 
         selected_items = context.selected_items or ([cur] if cur else [])
         quoted_selected = " ".join(shlex.quote(it.path) for it in selected_items)
         quoted_selected_names = " ".join(shlex.quote(it.name) for it in selected_items)
+        quoted_selected_stems = " ".join(shlex.quote(os.path.splitext(it.name)[0]) for it in selected_items)
         count = str(len(selected_items))
 
+        active_pane_id = getattr(context.active_pane, "id", "left")
+        target_pane_id = getattr(context.target_pane, "id", "right")
+
+        size_str = str(cur.size) if cur else "0"
+        mtime_str = str(cur.mtime) if cur else "0"
+        perms_str = cur.permissions_str if cur else ""
+        user_str = cur.user if cur else ""
+        group_str = cur.group if cur else ""
+
         return {
-            "file": cur_file,
-            "name": cur_name,
+            # Directory variables
+            "current_dir": cur_dir,
             "dir": cur_dir,
-            "ext": cur_ext,
+            "cwd": cur_dir,
             "target_dir": target_dir,
+            "other_dir": target_dir,
+
+            # Single file variables
+            "full_fname": cur_file,
+            "file": cur_file,
+            "path": cur_file,
+            "just_fname": cur_name,
+            "name": cur_name,
+            "fname": cur_name,
+            "stem": stem,
+            "basename": stem,
+            "ext": cur_ext,
+
+            # File metadata
+            "size": size_str,
+            "mtime": mtime_str,
+            "perms": perms_str,
+            "user": user_str,
+            "group": group_str,
+
+            # Selection collections
             "selected": quoted_selected,
             "selected_names": quoted_selected_names,
+            "selected_stems": quoted_selected_stems,
             "count": count,
+
+            # Panes
+            "active_pane": str(active_pane_id),
+            "target_pane": str(target_pane_id),
         }
 
     @classmethod
