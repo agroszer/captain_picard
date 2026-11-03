@@ -19,6 +19,7 @@ from pycommander.queue_manager import TransferQueueManager
 from pycommander.quick_view import FileInfoGenerator, QuickViewer
 from pycommander.search import DuplicateFinder, FileFinder, SearchCriteria
 from pycommander.selection import SelectionManager
+from pycommander.state import StateManager
 from pycommander.vfs import FileStat, LocalVFS, VFS
 from pycommander.virtual_folder_vfs import VirtualFolderVFS
 
@@ -120,6 +121,8 @@ class PyCommanderApp(App):
         right_path: str = ".",
         keymap: Optional[Keymap] = None,
         theme_path: str = "theme.ini",
+        state_path: Optional[str] = None,
+        auto_save_on_change: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -133,9 +136,25 @@ class PyCommanderApp(App):
         self.left_selection = SelectionManager()
         self.right_selection = SelectionManager()
         self.theme_colors = load_theme_colors(theme_path)
+        self.auto_save_on_change = auto_save_on_change
+
+        self.state_mgr = StateManager(config_path=state_path) if state_path else StateManager()
+        # Restore last saved tabs, active pane, and selection if available
+        self.state_mgr.restore_to_app(self.panes, self.left_selection, self.right_selection)
 
         self._bind_actions_from_ini()
         self._register_actions()
+
+    def persist_state(self) -> None:
+        """Saves current state to INI configuration file."""
+        try:
+            self.state_mgr.save_state(self.panes, self.left_selection, self.right_selection)
+        except Exception:
+            pass
+
+    def on_unmount(self) -> None:
+        """Called automatically on application exit: persists current state."""
+        self.persist_state()
 
     def _bind_actions_from_ini(self) -> None:
         """Dynamically registers Textual keybindings from the INI keymap."""
@@ -154,6 +173,8 @@ class PyCommanderApp(App):
         def act_switch_pane(ctx=None):
             self.panes.switch_pane()
             self.update_active_pane_ui()
+            if self.auto_save_on_change:
+                self.persist_state()
 
         @reg.register("show_help", title="Show Help")
         def act_show_help(ctx=None):
@@ -176,6 +197,8 @@ class PyCommanderApp(App):
             if cur and cur.is_dir:
                 pane.active_tab.navigate_to(cur.path)
                 self.refresh_pane_lists()
+                if self.auto_save_on_change:
+                    self.persist_state()
             elif cur:
                 self.plugins.open_file(cur, pane.active_tab.vfs)
 
@@ -186,6 +209,8 @@ class PyCommanderApp(App):
             if parent and parent != pane.active_tab.path:
                 pane.active_tab.navigate_to(parent)
                 self.refresh_pane_lists()
+                if self.auto_save_on_change:
+                    self.persist_state()
 
         @reg.register("toggle_selection", title="Toggle Selection")
         def act_toggle_sel(ctx=None):
@@ -196,6 +221,8 @@ class PyCommanderApp(App):
                 sel_mgr.toggle(cur.path)
                 pane.move_cursor_down()
                 self.refresh_pane_lists()
+                if self.auto_save_on_change:
+                    self.persist_state()
 
         @reg.register("copy_items", title="Copy Items")
         def act_copy(ctx=None):
