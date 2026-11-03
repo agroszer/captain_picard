@@ -45,6 +45,104 @@ class Color:
     NC_KEY_NUM = "\033[40;37m"
     NC_KEY_NAME = "\033[46;30m"
 
+    @classmethod
+    def parse_color(cls, name_or_code: str, is_bg: bool = False) -> str:
+        """Parses color name into ANSI escape code."""
+        n = name_or_code.lower().strip()
+        if n.startswith("\033"):
+            return n
+        fg_map = {
+            "black": cls.BLACK,
+            "red": cls.RED,
+            "green": cls.GREEN,
+            "yellow": cls.YELLOW,
+            "blue": cls.BLUE,
+            "magenta": cls.MAGENTA,
+            "cyan": cls.CYAN,
+            "white": cls.WHITE,
+        }
+        bg_map = {
+            "black": cls.BG_BLACK,
+            "red": cls.BG_RED,
+            "green": cls.BG_GREEN,
+            "yellow": cls.BG_YELLOW,
+            "blue": cls.BG_BLUE,
+            "magenta": cls.BG_MAGENTA,
+            "cyan": cls.BG_CYAN,
+            "white": cls.BG_WHITE,
+        }
+        lookup = bg_map if is_bg else fg_map
+        return lookup.get(n, cls.BG_BLUE if is_bg else cls.WHITE)
+
+
+@dataclass
+class ThemeConfig:
+    """Loads theme and color configuration from an INI file."""
+    background: str = Color.BG_BLUE
+    foreground: str = Color.WHITE
+    box_border_active: str = Color.CYAN
+    box_border_inactive: str = Color.WHITE
+    cursor_background: str = Color.BG_CYAN
+    cursor_foreground: str = Color.BLACK
+    selected_foreground: str = Color.YELLOW
+    menu_background: str = Color.BG_CYAN
+    menu_foreground: str = Color.BLACK
+    status_background: str = Color.BG_BLACK
+    status_foreground: str = Color.WHITE
+    button_number_background: str = Color.BG_BLACK
+    button_number_foreground: str = Color.WHITE
+    button_label_background: str = Color.BG_CYAN
+    button_label_foreground: str = Color.BLACK
+    dialog_background: str = Color.BG_RED
+    dialog_foreground: str = Color.WHITE
+
+    @classmethod
+    def from_ini(cls, ini_path_or_str: str) -> ThemeConfig:
+        import configparser
+        config = configparser.ConfigParser()
+        if os.path.exists(ini_path_or_str):
+            config.read(ini_path_or_str)
+        else:
+            config.read_string(ini_path_or_str)
+
+        colors = dict(config.items("colors")) if config.has_section("colors") else {}
+        t = cls()
+        if "background" in colors:
+            t.background = Color.parse_color(colors["background"], is_bg=True)
+        if "foreground" in colors:
+            t.foreground = Color.parse_color(colors["foreground"], is_bg=False)
+        if "box_border_active" in colors:
+            t.box_border_active = Color.parse_color(colors["box_border_active"], is_bg=False)
+        if "box_border_inactive" in colors:
+            t.box_border_inactive = Color.parse_color(colors["box_border_inactive"], is_bg=False)
+        if "cursor_background" in colors:
+            t.cursor_background = Color.parse_color(colors["cursor_background"], is_bg=True)
+        if "cursor_foreground" in colors:
+            t.cursor_foreground = Color.parse_color(colors["cursor_foreground"], is_bg=False)
+        if "selected_foreground" in colors:
+            t.selected_foreground = Color.parse_color(colors["selected_foreground"], is_bg=False)
+        if "menu_background" in colors:
+            t.menu_background = Color.parse_color(colors["menu_background"], is_bg=True)
+        if "menu_foreground" in colors:
+            t.menu_foreground = Color.parse_color(colors["menu_foreground"], is_bg=False)
+        if "status_background" in colors:
+            t.status_background = Color.parse_color(colors["status_background"], is_bg=True)
+        if "status_foreground" in colors:
+            t.status_foreground = Color.parse_color(colors["status_foreground"], is_bg=False)
+        if "button_number_background" in colors:
+            t.button_number_background = Color.parse_color(colors["button_number_background"], is_bg=True)
+        if "button_number_foreground" in colors:
+            t.button_number_foreground = Color.parse_color(colors["button_number_foreground"], is_bg=False)
+        if "button_label_background" in colors:
+            t.button_label_background = Color.parse_color(colors["button_label_background"], is_bg=True)
+        if "button_label_foreground" in colors:
+            t.button_label_foreground = Color.parse_color(colors["button_label_foreground"], is_bg=False)
+        if "dialog_background" in colors:
+            t.dialog_background = Color.parse_color(colors["dialog_background"], is_bg=True)
+        if "dialog_foreground" in colors:
+            t.dialog_foreground = Color.parse_color(colors["dialog_foreground"], is_bg=False)
+        return t
+
 
 @dataclass
 class Cell:

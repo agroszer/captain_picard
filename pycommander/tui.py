@@ -16,7 +16,7 @@ from pycommander.queue_manager import TransferQueueManager
 from pycommander.quick_view import FileInfoGenerator, QuickViewer
 from pycommander.search import DuplicateFinder, FileFinder, SearchCriteria
 from pycommander.selection import SelectionManager
-from pycommander.terminal import Color, ScreenBuffer
+from pycommander.terminal import Color, ScreenBuffer, ThemeConfig
 from pycommander.vfs import FileStat, LocalVFS, VFS
 from pycommander.virtual_folder_vfs import VirtualFolderVFS
 
@@ -35,6 +35,7 @@ class PyCommanderApp:
         left_path: str = ".",
         right_path: str = ".",
         keymap: Optional[Keymap] = None,
+        theme: Optional[ThemeConfig] = None,
         width: int = 80,
         height: int = 24,
     ):
@@ -42,6 +43,7 @@ class PyCommanderApp:
         self.height = height
         self.buffer = ScreenBuffer(width=width, height=height)
         self.panes = DualPaneManager(initial_path_left=left_path, initial_path_right=right_path)
+        self.theme = theme or self._load_default_theme()
         self.actions = default_registry
         self.keymap = keymap or create_norton_keymap()
         self.ops = FileOperations()
@@ -60,6 +62,14 @@ class PyCommanderApp:
         self.menu_bar_idx: int = 0
 
         self._register_builtin_actions()
+
+    def _load_default_theme(self) -> ThemeConfig:
+        theme_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "theme.ini")
+        if os.path.exists(theme_path):
+            return ThemeConfig.from_ini(theme_path)
+        elif os.path.exists("theme.ini"):
+            return ThemeConfig.from_ini("theme.ini")
+        return ThemeConfig()
 
     @property
     def current_selection_mgr(self) -> SelectionManager:
@@ -347,13 +357,14 @@ class PyCommanderApp:
         return False
 
     def render(self) -> str:
-        """Renders the entire TUI screen into the ScreenBuffer."""
-        self.buffer.clear(bg=Color.BG_BLUE, fg=Color.WHITE)
+        """Renders the entire TUI screen into the ScreenBuffer using configured Theme colors."""
+        t = self.theme
+        self.buffer.clear(bg=t.background, fg=t.foreground)
 
         # 1. Top Menu Bar
         menu_items = [" Left ", " File ", " Command ", " Options ", " Right "]
         menu_text = "".join(menu_items)
-        self.buffer.put_text(0, 0, menu_text.ljust(self.width), fg=Color.BLACK, bg=Color.BG_CYAN)
+        self.buffer.put_text(0, 0, menu_text.ljust(self.width), fg=t.menu_foreground, bg=t.menu_background)
 
         # 2. Main Panes Layout
         panel_y = 1
@@ -371,12 +382,11 @@ class PyCommanderApp:
         # 3. Status Bar / Command Line
         status_y = self.height - 2
         status_txt = f"{self.status_message}"
-        self.buffer.put_text(0, status_y, status_txt.ljust(self.width), fg=Color.WHITE, bg=Color.BG_BLACK)
+        self.buffer.put_text(0, status_y, status_txt.ljust(self.width), fg=t.status_foreground, bg=t.status_background)
 
         # 4. Norton Bottom Button Bar (F1 - F10) - Dynamically resolved from INI keybindings
         btn_y = self.height - 1
         fn_keys = []
-        # Standard clean labels mapping to action verbs
         short_names = {
             "show_help": "Help",
             "show_user_menu": "Menu",
@@ -405,8 +415,8 @@ class PyCommanderApp:
         seg_w = max(1, self.width // 10)
         for i, (num, name) in enumerate(fn_keys):
             bx = i * seg_w
-            self.buffer.put_text(bx, btn_y, num, fg=Color.WHITE, bg=Color.BG_BLACK, bold=True)
-            self.buffer.put_text(bx + len(num), btn_y, name.ljust(seg_w - len(num)), fg=Color.BLACK, bg=Color.BG_CYAN)
+            self.buffer.put_text(bx, btn_y, num, fg=t.button_number_foreground, bg=t.button_number_background, bold=True)
+            self.buffer.put_text(bx + len(num), btn_y, name.ljust(seg_w - len(num)), fg=t.button_label_foreground, bg=t.button_label_background)
 
         # 5. Modal Dialog Overlay if open
         if self.active_dialog:
@@ -415,23 +425,24 @@ class PyCommanderApp:
         return self.buffer.render_to_string()
 
     def _render_pane(self, pane: Pane, x: int, y: int, w: int, h: int, is_active: bool) -> None:
+        t = self.theme
         title = pane.active_tab.path
         if pane.active_tab.is_locked:
             title = f"[LOCKED] {title}"
 
         # Draw outer box
-        box_fg = Color.CYAN if is_active else Color.WHITE
-        self.buffer.draw_box(x, y, w, h, title=title, fg=box_fg, bg=Color.BG_BLUE, double=is_active)
+        box_fg = t.box_border_active if is_active else t.box_border_inactive
+        self.buffer.draw_box(x, y, w, h, title=title, fg=box_fg, bg=t.background, double=is_active)
 
         # Tabs Header line
         tab_str = ""
-        for i, t in enumerate(pane.tabs):
-            tab_title = t.title[:8]
+        for i, t_obj in enumerate(pane.tabs):
+            tab_title = t_obj.title[:8]
             if i == pane.active_tab_idx:
                 tab_str += f"[{tab_title}] "
             else:
                 tab_str += f" {tab_title}  "
-        self.buffer.put_text(x + 1, y + 1, tab_str[: w - 2], fg=Color.YELLOW, bg=Color.BG_BLUE)
+        self.buffer.put_text(x + 1, y + 1, tab_str[: w - 2], fg=t.selected_foreground, bg=t.background)
 
         content_y = y + 2
         content_h = h - 3
@@ -442,14 +453,14 @@ class PyCommanderApp:
             cur = target.get_current_item()
             preview = QuickViewer.generate_preview(target.active_tab.vfs, cur.path if cur else "")
             for i, line in enumerate(preview[:content_h]):
-                self.buffer.put_text(x + 1, content_y + i, line[: w - 2], fg=Color.WHITE, bg=Color.BG_BLUE)
+                self.buffer.put_text(x + 1, content_y + i, line[: w - 2], fg=t.foreground, bg=t.background)
 
         elif pane.mode == PaneMode.INFO:
             target = self.panes.left if pane == self.panes.right else self.panes.right
             cur = target.get_current_item()
             info = FileInfoGenerator.generate_info(target.active_tab.vfs, cur.path if cur else "")
             for i, line in enumerate(info[:content_h]):
-                self.buffer.put_text(x + 1, content_y + i, line[: w - 2], fg=Color.WHITE, bg=Color.BG_BLUE)
+                self.buffer.put_text(x + 1, content_y + i, line[: w - 2], fg=t.foreground, bg=t.background)
 
         elif pane.mode == PaneMode.TREE and pane.tree_view:
             nodes = pane.tree_view.get_visible_nodes()
@@ -458,8 +469,8 @@ class PyCommanderApp:
                 indent = "  " * node.depth
                 node_text = f"{indent}{prefix}{node.name}"
                 is_cursor = (i == pane.tree_view.cursor_index and is_active)
-                bg = Color.BG_CYAN if is_cursor else Color.BG_BLUE
-                fg = Color.BLACK if is_cursor else Color.WHITE
+                bg = t.cursor_background if is_cursor else t.background
+                fg = t.cursor_foreground if is_cursor else t.foreground
                 self.buffer.put_text(x + 1, content_y + i, node_text[: w - 2].ljust(w - 2), fg=fg, bg=bg)
 
         else:
@@ -472,8 +483,8 @@ class PyCommanderApp:
                 is_cursor = (i == cursor and is_active)
                 is_sel = sel_mgr.is_selected(item.path)
 
-                bg = Color.BG_CYAN if is_cursor else Color.BG_BLUE
-                fg = Color.BLACK if is_cursor else (Color.YELLOW if is_sel else (Color.WHITE if item.is_dir else Color.CYAN))
+                bg = t.cursor_background if is_cursor else t.background
+                fg = t.cursor_foreground if is_cursor else (t.selected_foreground if is_sel else t.foreground)
 
                 # Comparison visual indicators
                 comp_tag = self.panes.comparison_diffs.get(f"{pane.id}:{item.name}", "")
@@ -490,17 +501,18 @@ class PyCommanderApp:
     def _render_dialog(self) -> None:
         if not self.active_dialog:
             return
+        t = self.theme
         dw = min(60, self.width - 4)
         dh = min(15, self.height - 4)
         dx = (self.width - dw) // 2
         dy = (self.height - dh) // 2
 
-        self.buffer.draw_box(dx, dy, dw, dh, title=self.active_dialog["title"], fg=Color.WHITE, bg=Color.BG_RED, double=True)
+        self.buffer.draw_box(dx, dy, dw, dh, title=self.active_dialog["title"], fg=t.dialog_foreground, bg=t.dialog_background, double=True)
         lines = self.active_dialog["lines"]
         offset = self.active_dialog.get("scroll_offset", 0)
 
         for i, line in enumerate(lines[offset : offset + (dh - 3)]):
-            self.buffer.put_text(dx + 2, dy + 1 + i, line[: dw - 4], fg=Color.WHITE, bg=Color.BG_RED)
+            self.buffer.put_text(dx + 2, dy + 1 + i, line[: dw - 4], fg=t.dialog_foreground, bg=t.dialog_background)
 
         hint = "[ Enter / Esc to Close ]"
-        self.buffer.put_text(dx + (dw - len(hint)) // 2, dy + dh - 1, hint, fg=Color.YELLOW, bg=Color.BG_RED)
+        self.buffer.put_text(dx + (dw - len(hint)) // 2, dy + dh - 1, hint, fg=Color.YELLOW, bg=t.dialog_background)
