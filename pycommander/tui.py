@@ -373,20 +373,35 @@ class PyCommanderApp:
         status_txt = f"{self.status_message}"
         self.buffer.put_text(0, status_y, status_txt.ljust(self.width), fg=Color.WHITE, bg=Color.BG_BLACK)
 
-        # 4. Norton Bottom Button Bar (F1 - F10)
+        # 4. Norton Bottom Button Bar (F1 - F10) - Dynamically resolved from INI keybindings
         btn_y = self.height - 1
-        fn_keys = [
-            ("1", "Help"),
-            ("2", "Menu"),
-            ("3", "View"),
-            ("4", "Edit"),
-            ("5", "Copy"),
-            ("6", "Move"),
-            ("7", "Mkdir"),
-            ("8", "Delete"),
-            ("9", "PullDn"),
-            ("10", "Quit"),
-        ]
+        fn_keys = []
+        # Standard clean labels mapping to action verbs
+        short_names = {
+            "show_help": "Help",
+            "show_user_menu": "Menu",
+            "view_file": "View",
+            "edit_file": "Edit",
+            "copy_items": "Copy",
+            "move_items": "Move",
+            "make_directory": "Mkdir",
+            "delete_items": "Delete",
+            "toggle_menu_bar": "PullDn",
+            "quit_app": "Quit",
+        }
+        for n in range(1, 11):
+            key = f"f{n}"
+            binding = next((b for b in self.keymap.bindings if b.key_sequence == key), None)
+            if binding:
+                act = self.actions.get(binding.action_id)
+                label = short_names.get(binding.action_id)
+                if not label:
+                    label = act.title if act else binding.action_id.replace("_", " ").title()
+                    label = label.split()[0]
+            else:
+                label = ""
+            fn_keys.append((str(n), label))
+
         seg_w = max(1, self.width // 10)
         for i, (num, name) in enumerate(fn_keys):
             bx = i * seg_w
