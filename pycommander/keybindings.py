@@ -181,83 +181,131 @@ class Keymap:
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.export_dict(), indent=indent)
 
+    def load_ini(self, ini_content_or_path: str) -> None:
+        """Loads keybindings from an INI file or INI string."""
+        import configparser
+        import os
+
+        config = configparser.ConfigParser()
+        if os.path.exists(ini_content_or_path):
+            config.read(ini_content_or_path)
+        else:
+            config.read_string(ini_content_or_path)
+
+        for section in config.sections():
+            for key_seq, action_id in config.items(section):
+                self.bind(key_sequence=key_seq, action_id=action_id.strip())
+
+    def to_ini(self) -> str:
+        """Exports keybindings to INI string."""
+        lines = ["[keybindings]\n"]
+        for b in self.bindings:
+            lines.append(f"{b.key_sequence} = {b.action_id}\n")
+        return "".join(lines)
+
+
+def load_keymap_from_ini(ini_path: str, name: str = "custom") -> Keymap:
+    km = Keymap(name)
+    km.load_ini(ini_path)
+    return km
+
 
 def create_norton_keymap() -> Keymap:
-    """Default Norton Commander / Midnight Commander style keybindings."""
+    """Default Norton Commander keybindings loaded from keybindings.ini."""
+    import os
     km = Keymap("norton")
-    # Navigation
-    km.bind("up", "cursor_up")
-    km.bind("down", "cursor_down")
-    km.bind("left", "cursor_left")
-    km.bind("right", "cursor_right")
-    km.bind("pageup", "page_up")
-    km.bind("pagedown", "page_down")
-    km.bind("home", "go_home")
-    km.bind("end", "go_end")
-    km.bind("tab", "switch_pane")
-    km.bind("enter", "open_selected")
-    km.bind("backspace", "go_parent_dir")
+    ini_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "keybindings.ini")
+    if os.path.exists(ini_path):
+        km.load_ini(ini_path)
+    elif os.path.exists("keybindings.ini"):
+        km.load_ini("keybindings.ini")
+    else:
+        # Fallback inline INI definition
+        ini_content = """
+[navigation]
+up = cursor_up
+down = cursor_down
+left = cursor_left
+right = cursor_right
+pageup = page_up
+pagedown = page_down
+home = go_home
+end = go_end
+tab = switch_pane
+enter = open_selected
+backspace = go_parent_dir
 
-    # Function Keys (Standard Norton / MC)
-    km.bind("f1", "show_help")
-    km.bind("f2", "show_user_menu")
-    km.bind("f3", "view_file")
-    km.bind("f4", "edit_file")
-    km.bind("f5", "copy_items")
-    km.bind("f6", "move_items")
-    km.bind("f7", "make_directory")
-    km.bind("f8", "delete_items")
-    km.bind("delete", "delete_items")
-    km.bind("f9", "toggle_menu_bar")
-    km.bind("f10", "quit_app")
+[function_keys]
+f1 = show_help
+f2 = show_user_menu
+f3 = view_file
+f4 = edit_file
+f5 = copy_items
+f6 = move_items
+f7 = make_directory
+f8 = delete_items
+delete = delete_items
+f9 = toggle_menu_bar
+f10 = quit_app
 
-    # Selection
-    km.bind("insert", "toggle_selection")
-    km.bind("space", "toggle_selection")
-    km.bind("+", "select_by_wildcard")
-    km.bind("-", "deselect_by_wildcard")
-    km.bind("*", "invert_selection")
-    km.bind("alt++", "select_all_same_ext")
-    km.bind("ctrl+r", "refresh_view")
-    km.bind("ctrl+u", "swap_panes")
-    km.bind("ctrl+o", "toggle_split_orientation")
+[selection]
+insert = toggle_selection
+space = toggle_selection
++ = select_by_wildcard
+- = deselect_by_wildcard
+* = invert_selection
+alt++ = select_all_same_ext
+ctrl+r = refresh_view
+ctrl+u = swap_panes
+ctrl+o = toggle_split_orientation
 
-    # Tabs
-    km.bind("ctrl+t", "new_tab")
-    km.bind("ctrl+w", "close_tab")
-    km.bind("ctrl+pgup", "prev_tab")
-    km.bind("ctrl+pgdn", "next_tab")
-    km.bind("ctrl+l", "lock_tab")
+[tabs]
+ctrl+t = new_tab
+ctrl+w = close_tab
+ctrl+pgup = prev_tab
+ctrl+pgdn = next_tab
+ctrl+l = lock_tab
 
-    # Search & Diff
-    km.bind("alt+f7", "find_files")
-    km.bind("ctrl+f", "quick_filter")
-    km.bind("ctrl+d", "show_bookmarks")
-    km.bind("ctrl+g", "go_to_path")
-    km.bind("ctrl+s", "sync_directories")
-    km.bind("ctrl+q", "toggle_quick_view")
-    km.bind("ctrl+i", "toggle_info_panel")
-    km.bind("ctrl+m", "show_mounts")
-    km.bind("ctrl+e", "compare_directories")
-
+[features]
+alt+f7 = find_files
+ctrl+f = quick_filter
+ctrl+d = show_bookmarks
+ctrl+g = go_to_path
+ctrl+s = sync_directories
+ctrl+q = toggle_quick_view
+ctrl+i = toggle_info_panel
+ctrl+m = show_mounts
+ctrl+e = compare_directories
+"""
+        km.load_ini(ini_content)
     return km
 
 
 def create_vim_keymap() -> Keymap:
-    """Vim-style keybindings preset."""
+    """Vim-style keybindings preset loaded from keybindings_vim.ini."""
+    import os
     km = create_norton_keymap()
     km.name = "vim"
-    km.bind("j", "cursor_down")
-    km.bind("k", "cursor_up")
-    km.bind("h", "go_parent_dir")
-    km.bind("l", "open_selected")
-    km.bind("g g", "go_home")
-    km.bind("shift+g", "go_end")
-    km.bind("v", "toggle_selection")
-    km.bind("d d", "delete_items")
-    km.bind("y y", "copy_items")
-    km.bind("p", "move_items")
-    km.bind("/", "quick_filter")
-    km.bind(":", "open_command_palette")
-    km.bind("q", "quit_app")
+    ini_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "keybindings_vim.ini")
+    if os.path.exists(ini_path):
+        km.load_ini(ini_path)
+    elif os.path.exists("keybindings_vim.ini"):
+        km.load_ini("keybindings_vim.ini")
+    else:
+        ini_content = """
+[vim]
+j = cursor_down
+k = cursor_up
+h = go_parent_dir
+l = open_selected
+g g = go_home
+shift+g = go_end
+v = toggle_selection
+d d = delete_items
+y y = copy_items
+p = move_items
+/ = quick_filter
+q = quit_app
+"""
+        km.load_ini(ini_content)
     return km
