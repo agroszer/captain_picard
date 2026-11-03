@@ -46,21 +46,24 @@ class PyCommanderTextualApp(App):
     }
     """
 
-    BINDINGS = [
-        ("tab", "switch_pane", "Switch Pane"),
-        ("f1", "help", "Help"),
-        ("f3", "view_file", "View"),
-        ("f5", "copy_file", "Copy"),
-        ("f6", "move_file", "Move"),
-        ("f7", "mkdir", "Mkdir"),
-        ("f8", "delete_file", "Delete"),
-        ("f10", "quit", "Quit"),
-    ]
-
-    def __init__(self, left_path: str = ".", right_path: str = ".", **kwargs):
+    def __init__(self, left_path: str = ".", right_path: str = ".", keymap=None, **kwargs):
         super().__init__(**kwargs)
         self.panes_mgr = DualPaneManager(initial_path_left=left_path, initial_path_right=right_path)
         self.actions = default_registry
+        self.keymap = keymap or create_norton_keymap()
+        # Dynamically populate BINDINGS from INI-loaded keymap
+        self._load_bindings_from_keymap()
+
+    def _load_bindings_from_keymap(self) -> None:
+        """Dynamically binds actions from active INI keymap configuration."""
+        for b in self.keymap.bindings:
+            act = self.actions.get(b.action_id)
+            title = act.title if act else b.action_id.replace("_", " ").title()
+            try:
+                # Bind directly into Textual's active keymap table
+                self.bind(b.key_sequence, b.action_id, description=title)
+            except Exception:
+                pass
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)

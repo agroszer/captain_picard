@@ -163,17 +163,13 @@ class PyCommanderApp:
         # Norton Function Keys
         @reg.register("show_help", title="Show Help")
         def act_show_help(ctx: ActionContext):
-            self.open_dialog(
-                "Help & Shortcuts",
-                [
-                    "F1: Help         F2: User Menu   F3: View File",
-                    "F4: Edit File    F5: Copy Items  F6: Move/Rename",
-                    "F7: Mkdir        F8: Delete      F9: Menu Bar",
-                    "F10: Quit        Tab: Switch     Insert/Space: Select",
-                    "+/-: Wildcard Sel  *: Invert Sel   Ctrl+Q: Quick View",
-                    "Ctrl+T/W: New/Close Tab  Alt+F7: Find Files",
-                ],
-            )
+            # Dynamically generated directly from active INI keybindings
+            help_lines = []
+            for b in self.keymap.bindings:
+                act = self.actions.get(b.action_id)
+                title = act.title if act else b.action_id.replace("_", " ").title()
+                help_lines.append(f"{b.key_sequence.upper():<14} : {title}")
+            self.open_dialog("Help & Shortcuts (INI Configured)", help_lines or ["No bindings configured."])
 
         @reg.register("show_user_menu", title="User Menu")
         def act_show_user_menu(ctx: ActionContext):
