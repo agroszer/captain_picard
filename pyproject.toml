@@ -13,7 +13,13 @@ classifiers = [
     "Operating System :: OS Independent",
     "Environment :: Console",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.13"
+dependencies = [
+    "textual>=8.0.0",
+    "rich>=14.0.0",
+    "fsspec>=2024.0.0",
+    "fs>=2.4.0",
+]
 
 [project.scripts]
 pycommander = "pycommander.main:main"

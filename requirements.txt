@@ -1,5 +1,7 @@
 textual==8.2.8
 rich==15.0.0
+fsspec==2026.9.0
+fs==2.4.16
 typing_extensions==4.15.0
 markdown-it-py==4.2.0
 mdit-py-plugins==0.6.1
